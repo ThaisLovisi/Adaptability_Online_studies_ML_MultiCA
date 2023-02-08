@@ -1,0 +1,654 @@
+---
+title: "Students Adaptability Level in Online Education"
+author: "Thais Lovisi"
+source: "https://www.kaggle.com/datasets/aacd0960cb0636ad956dcf1a07cf7a58bc7d621e3813a8ed8ef8b4f25dd837c8"
+article: "Students' Adaptability Level Prediction in Online Education using Machine Learning Approaches or DOI: 10.1109/ICCCNT51525.2021.9579741"
+date: "2023-02-04"
+output: html_document
+---
+# Introduction
+
+
+
+### About Dataset (information obtained at the original article mentioned at source)
+
+The original authors from the project collected students’ information of three different educational levels:
+<br>1. School,
+<br>2. College,
+<br>3. University. 
+<br><br>The data collection was conducted by online and physical surveys. Each one of the surveys form consisted of an individual’s
+socio-demographic factors. The data collected was 1205 data from the time period from December 10th, 2020 to February 5th, 2021 and the 14 attributes collected were:
+
+<br>1. Gender: Gender type of student
+<br>2. Age: Age range of the student
+<br>3. Education Level: Education institution level
+<br>4. Institution Type: Education institution type
+<br>5. IT Student: Studying as IT student or not
+<br>6. Location: whether student is located in town or not
+<br>7. Load-shedding: Level of load shedding
+<br>8. Financial Condition: Financial condition of family
+<br>9. Internet Type: Internet type used mostly in device
+<br>10. Network Type: Network connectivity type
+<br>11. Class Duration: Daily class duration
+<br>12. Self LMS: Institution’s own LMS availability
+<br>13. Device: Device used mostly in class
+<br>14. Adaptability Level: Adaptability level of the student
+
+### Goal of the notebook:
+Predict the outcome of Students’ Adaptability Level Prediction in Online Education using Machine Learning Approaches. Our target column is 
+(14) Adaptability Level: Adaptability level of the student.Our goal include 3 main parts below:
+
+<br>1) Univariate & Multivariate Analysis on features;
+
+<br>2) Data Preprocessing for ML MCA Prediction;
+
+<br>3) ML Model Generation - MCA
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Table of Contents
+
+<br>1. R setup
+<br>2. Knowing my data
+<br>3. Univariate Analysis
+<br>4. Multivariate Analysis
+<br>5. Preparing the data to MCA
+<br>6. Contingency tables
+<br>7. Create MCA
+
+
+## 1. R Steup
+
+<br>At this step we will install or import libraries that are necessary to this project
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+pack <- c("plotly", 
+             "tidyverse", 
+             "ggrepel",
+             "knitr", "kableExtra", 
+             "sjPlot", 
+             "FactoMineR", 
+             "amap", 
+             "ade4",
+             "readxl",
+          "viridis")
+
+if(sum(as.numeric(!pack%in%installed.packages()))!= 0){
+  installing <- pacotes[!pack %in% installed.packages()]
+  for(i in 1:length(installing)) {
+    install.packages(installing, dependencies = T)
+    break()}
+  sapply(pack, require, character = T) 
+} else {
+  sapply(pack, require, character = T) 
+}
+
+```
+
+<br> The next step inside our setup is to load the data. The data was stored at .csv format and in the same folder where this script is saved.
+
+```{r}
+ original_data <- read.csv("students_adaptability_level_online_education.csv")
+```
+
+## 2. Knowing My Data
+
+At this stage I would like to know:
+<br> Column names and its position identification
+<br>Type of variables that were registered (as we will work with AC we need to identify if conversion is needed)
+<br>There is any NA and where
+<br>What are the unique values 
+  
+```{r}
+#Column names and its position identification
+  for (c in 1:14){
+    print (paste(c,"","is","",colnames(original_data)[c]))
+  }
+```
+
+```{r}
+# For variable types, easy way
+summary(original_data)
+```
+
+```{r}
+# There is a NA?
+for (c in colnames(original_data)){
+  for (i in 1:nrow(original_data)){
+    if (is.na(original_data[i, c])){
+      print(paste("There is a NA at",i,c))
+      break
+    }else{
+      next
+    }
+  }
+}
+```
+
+There is no NA on the data set.
+
+```{r}
+#Unique values
+for (c in colnames(original_data)){
+ print(paste("To column ",c))
+ print(paste(unique(original_data[[c]])))
+}
+```
+## 3. Univariate Analysis
+
+##### Gender and Institution.Type
+
+```{r}
+slices_gender <- c(sum(original_data[1]=='Girl'),sum(original_data[1]=='Boy'))
+pcts <- round((slices_gender/sum(slices_gender)*100))
+lbls <- c("Girl","Boy")
+lbls <- paste(lbls, pcts) # add percents to labels
+lbls <- paste(lbls,"%",sep="") # ad % to labels
+pie(slices_gender,labels = lbls, main="Gender Distribution\n(Gender type of student)")
+```
+```{r}
+slices_inst <- c(sum(original_data[4]=='Non Government'),sum(original_data[4]=='Government'))
+pcs <- round((slices_inst/sum(slices_inst)*100))
+lbls <- c("Non Government","Government")
+lbls <- paste(lbls, pcs) # add percents to labels
+lbls <- paste(lbls,"%",sep="") # ad % to labels
+pie(slices_inst,labels = lbls,  col=rainbow(length(lbls)), main="Education institution\n(Management Type)")
+```
+<br>From this Univariate analysis is possible to conclude that:
+<br>a)Male accounts for 55% and Female separately accounts for 45%;
+<br>b)Regarding the institution type is possible to verify that 68,3% of the data set were made by students from Non Government managed institutions.
+
+##### Age & Class Duration
+
+```{r}
+bar_data <- c(sum(original_data[2] == "21-25"),sum(original_data[2] =="16-20"),sum(original_data[2] == "11-15"),sum(original_data[2] == "26-30"), sum(original_data[2] == "6-10"), sum(original_data[2] ==  "1-5"))
+lbsB <- c("21-25", "16-20", "11-15", "26-30", "6-10","1-5")
+barplot(bar_data,names.arg=lbsB,xlab="Age",ylab="Count",col=viridis(length(lbsB)),
+main="Age chart",border="white")
+```
+
+```{r}
+bar_data_class <- c(sum(original_data[11] == "3-6"),sum(original_data[11] =="1-3"),sum(original_data[11] == "0"))
+lbsC <- c("3-6", "1-3", "0")
+barplot(bar_data_class,names.arg=lbsC,xlab="Duration",ylab="Count",col=viridis(length(lbsC)),
+main="Class Duration",border="white")
+```
+
+<br>From this Univariate analysis is possible to conclude that:
+<br>a) Age of the respondents is mainly distributed between 11 and 25;
+<br>b)and the Class Duration mainly distributed between 1-3 hours.
+
+##### Education Level & Financial Condition & Network Type
+
+```{r}
+slices_ed_lev <- c(sum(original_data[3]=='College'),sum(original_data[3]=='3G'),sum(original_data[3]=='School'))
+pcsEd <- round((slices_ed_lev/sum(slices_ed_lev)*100))
+lblsEd <- c("College","University","School")
+lblsEd <- paste(lblsEd, pcsEd,"%", sep = " ") # add percents to labels
+pie(slices_ed_lev,labels = lblsEd,  col=rainbow(length(lblsEd)), main="Education Level")
+```
+```{r}
+slices_fin <- c(sum(original_data[8]== "Mid" ),sum(original_data[8]==  "Poor" ),sum(original_data[8]== "Rich"))
+pcsF <- round((slices_fin/sum(slices_fin)*100))
+lblsF <- c("Mid","Poor","Rich")
+lblsF <- paste(lblsF, pcsF,"%", sep = " ") # add percents to labels
+pie(slices_fin,labels = lblsF,  col=rainbow(length(lblsF)), main="Financial Condition")
+```
+
+```{r}
+slices_NT <- c(sum(original_data[10]=='4G'),sum(original_data[10]=='3G'),sum(original_data[10]=='2G'))
+pcsNT <- round((slices_NT/sum(slices_NT)*100))
+lblsNT <- c("4G","3G","2G")
+lblsNT <- paste(lblsNT, pcsNT,"%", sep = " ") # add percents to labels
+pie(slices_NT,labels = lblsNT,  col=rainbow(length(lblsNT)), main="Network Type")
+```
+<br>From this Univariate analysis is possible to conclude that most of the respondents:
+<br>a) Attend School and University
+<br>b) Are situated in Mid financial condition
+<br>c)Make use of 4G connection. Also is important to note that, there are just 1.58% of students using 2G network.
+
+##### IT Student &  Location & Self Lms
+```{r}
+slices_IT <- c(sum(original_data[5]== "Yes" ),sum(original_data[5]==  "No" ))
+pcsIT <- round((slices_IT/sum(slices_IT)*100))
+lblsIT <- c("Yes","No")
+lblsIT <- paste(lblsIT, pcsIT,"%", sep = " ") # add percents to labels
+pie(slices_IT,labels = lblsIT,  col=rainbow(length(lblsIT)), main= "IT student")
+```
+
+```{r}
+slices_Loc <- c(sum(original_data[6]== "Yes" ),sum(original_data[6]==  "No" ))
+pcsLoc <- round((slices_Loc/sum(slices_Loc)*100))
+lblsLoc <- c("Yes","No")
+lblsLoc <- paste(lblsLoc, pcsLoc,"%", sep = " ") # add percents to labels
+pie(slices_Loc,labels = lblsLoc,  col=rainbow(length(lblsLoc)), main= "Location")
+```
+
+```{r}
+slices_SLm <- c(sum(original_data[12]== "Yes" ),sum(original_data[12]==  "No" ))
+pcsSLm <- round((slices_SLm/sum(slices_SLm)*100))
+lblsSLm <- c("Yes","No")
+lblsSLm <- paste(lblsSLm, pcsSLm,"%", sep = " ") # add percents to labels
+pie(slices_SLm,labels = lblsSLm,  col=rainbow(length(lblsSLm)), main= "Self LMS")
+```
+
+<br>From this Univariate analysis is possible to conclude that:
+<br>a) Around 25.2% of respondents are IT student
+<br>b) 77.6% of them are located in town
+<br>c)17.4% of their institutions own LMS availability
+
+
+##### Load-shedding & Internet Type & Device
+
+```{r}
+slices_L_s <- c(sum(original_data[7]== "High" ),sum(original_data[7]==  "Low" ))
+pcs_L_s <- round((slices_L_s/sum(slices_L_s)*100))
+lbls_L_s <- c("Low","High")
+lbls_L_s <- paste(lbls_L_s, pcs_L_s,"%", sep = " ") # add percents to labels
+pie(slices_L_s,labels = lbls_L_s,  col=rainbow(length(lbls_L_s)), main= "Load-shedding")
+```
+
+```{r}
+slices_Inter_typ <- c(sum(original_data[9]== "Wifi" ),sum(original_data[9]==  "Mobile Data" ))
+pcsInter_typ <- round((slices_Inter_typ/sum(slices_Inter_typ)*100))
+lblsInter_typ <- c("Wifi","Mobile Data")
+lblsInter_typ <- paste(lblsInter_typ, pcsInter_typ,"%", sep = " ") # add percents to labels
+pie(slices_Inter_typ,labels = lblsInter_typ,  col=rainbow(length(lblsInter_typ)), main= "Internet type")
+```
+
+```{r}
+slices_D <- c(sum(original_data[13]== "Tab" ),sum(original_data[13]== "Mobile" ),sum(original_data[13]== "Computer" ))
+pcsD <- round((slices_D/sum(slices_D)*100))
+lblsD <- c("Tab","Mobile", "Computer")
+lblsD <- paste(lblsD, pcsD,"%", sep = " ") # add percents to labels
+pie(slices_D,labels = lblsD,  col=rainbow(length(lblsD)), main= "Device type")
+```
+
+<br>From this Univariate analysis is possible to conclude that:
+<br>a) Load-shedding refers to level of load shedding, and type 'low' accounts for 83.3%
+<br>b) 57.7% of respondents use mobile data to take classes
+<br>c) 84.1% of the respondents use mobile.
+
+#####  Adaptivity Level (Target Column)
+
+```{r}
+slices_Ad <- c(sum(original_data[14]== "Moderate" ),sum(original_data[14]== "Low" ),sum(original_data[14]== "High" ))
+pcsAd <- round((slices_Ad/sum(slices_Ad)*100))
+lblsAd <- c("Moderate","Low","High")
+lblsAd <- paste(lblsAd, pcsAd,"%", sep = " ") # add percents to labels
+pie(slices_Ad,labels = lblsAd,  col=rainbow(length(lblsAd)), main= "Adaptivity Level")
+```
+<br>Adaptability level refers to adaptability level of the student during online education. It can be seen that about 52% respond that they have moderate adaptability, while low accounts for 40%, high responds for 8% for this sample.
+
+### 4. Multivariate Analysis
+
+##### Age Distribution by Gender
+
+```{r}
+tt <- table(original_data[,1:2]) # Create a contingency table
+df_tt <- data.frame(expand.grid(row.names(tt),colnames(tt)),c(tt)) # transofrm into a data frame
+colnames(df_tt) <- c("Gender","Age","Count.t")
+  ggplot(df_tt, aes(fill = Gender, y = Count.t,x = Age))+
+    geom_bar(position="dodge", stat="identity")+
+    geom_text(aes(x = Age, y = as.numeric(Count.t), label = format(Count.t, digits = 1)),
+            size = 2.5,
+            position = position_dodge(.9),
+            inherit.aes = TRUE,
+            na.rm = TRUE, vjust = -1)+
+    ggtitle("Gender and Age Distribution")
+
+
+```
+<br> The distribution of Age per gender is:
+<br> a) Female's ditributed mainly in between 11-15 and 15-20;
+<br> b) Male ditributed mainly in between 11-15 and 21-25.
+
+##### IT Student Distribution by Gender
+
+```{r}
+tt_2 <- table(original_data[,c(1,5)]) # Create a contingency table
+df_tt_2 <- data.frame(expand.grid(row.names(tt_2),colnames(tt_2)),c(tt_2))
+colnames(df_tt_2) <- c("Gender","IT","Count.t")
+  ggplot(df_tt_2, aes(fill = Gender, y = Count.t,x = IT))+
+    geom_bar(position="dodge", stat="identity")+
+    geom_text(aes(x = IT, y = as.numeric(Count.t), label = format(Count.t, digits = 1)),
+            size = 2.5,
+            position = position_dodge(.9),
+            inherit.aes = TRUE,
+            na.rm = TRUE, vjust = -1)+
+    ggtitle("Gender and IT studies")
+
+```
+
+<br> Is possible to notice that the number of males studying IT compared to female, for this survey, is higher.
+
+##### IT Student Distribution by Education
+
+```{r}
+tt_3 <- table(original_data[,c(3,5)]) # Create a contingency table
+df_tt_3 <- data.frame(expand.grid(row.names(tt_3),colnames(tt_3)),c(tt_3))
+colnames(df_tt_3) <- c("Education.Level","IT","Count.t")
+  ggplot(df_tt_3, aes(fill = Education.Level, y = Count.t,x = IT))+
+    geom_bar(position="dodge", stat="identity")+
+    geom_text(aes(x = IT, y = as.numeric(Count.t), label = format(Count.t, digits = 1)),
+            size = 2.5,
+            position = position_dodge(.9),
+            inherit.aes = TRUE,
+            na.rm = TRUE, vjust = -1)+
+    ggtitle("Education Level and IT studies")
+
+```
+<br> The got the most IT students, whereas 30 and 27 IT students in college and school.
+
+##### Gender Distribution by Adaptivity Level
+
+```{r}
+tt_4 <- table(original_data[,c(1,14)]) # Create a contingency table
+df_tt_4 <- data.frame(expand.grid(row.names(tt_4),colnames(tt_4)),c(tt_4))
+colnames(df_tt_4) <- c("Gender","Adaptability","Count.t")
+  ggplot(df_tt_4, aes(fill = Gender, y = Count.t,x = Adaptability))+
+    geom_bar(position="dodge", stat="identity")+
+    geom_text(aes(x = Adaptability, y = as.numeric(Count.t), label = format(Count.t, digits = 1)),
+            size = 2.5,
+            position = position_dodge(.9),
+            inherit.aes = TRUE,
+            na.rm = TRUE, vjust = -1)+
+    ggtitle("Gender and Adaptivity Level")
+
+```
+ 
+<br> For this survey, 71 male respondents answered as they have high adaptivity level in online education compared to 29 female.
+<br>Additionally, both male and female overall got moderate adaptivity level.
+
+##### Age Distribution by Adaptivity Level
+
+```{r}
+
+tt_5 <- table(original_data[,c(2,14)]) # Create a contingency table
+df_tt_5 <- data.frame(expand.grid(row.names(tt_5),colnames(tt_5)),c(tt_5))
+colnames(df_tt_5) <- c("Age","Adaptability","Count.t")
+  ggplot(df_tt_5, aes(fill = Age, y = Count.t,x = Adaptability))+
+    geom_bar(position="dodge", stat="identity")+
+    geom_text(aes(x = Adaptability, y = as.numeric(Count.t), label = format(Count.t, digits = 1)),
+            size = 2.5,
+            position = position_dodge(.9),
+            inherit.aes = TRUE,
+            na.rm = TRUE, vjust = -1)+
+    ggtitle("Age Distribution by Adaptivity Level")
+
+```
+<br> a) 11-15, 21-25 and 26-30 high adaptivity levelif compared with the other ages. None of 1-5 got high adataptivity.
+
+##### Gender and Age distribution by adaptability
+
+
+```{r}
+fem <- original_data%>%
+  filter(Gender == "Girl")
+tt_6 <- table(fem[,c(2,14)]) # Create a contingency table
+tt_6
+df_tt_6 <- data.frame(expand.grid(row.names(tt_6),colnames(tt_6)),c(tt_6))
+colnames(df_tt_6) <- c("Age","Adaptability","Count.t")
+  ggplot(df_tt_6, aes(fill = Adaptability, y = Count.t,x = Age))+
+    geom_bar(position="dodge", stat="identity")+
+    geom_text(aes(x = Age, y = as.numeric(Count.t), label = format(Count.t, digits = 1)),
+            size = 2.5,
+            position = position_dodge(.9),
+            inherit.aes = TRUE,
+            na.rm = TRUE, vjust = -1)+
+    ggtitle("Age Distribution by Adaptivity Level for Girls")
+```
+<br> From this chart is possible observe that, for the Female gender respondents for this survey:
+<br> a) Between the ages 26-30 all respondents answer as having Low adaptivity
+<br> b) Bigger number of responses related to the Moderate adaptativity were observed at the ages between 1-5,11-5 and 21-25
+<br> c) A slightly higher adaptivity was noticed at the age range of 6-10, being just to answers higher is not possible afirm anything.
+
+```{r}
+male <- original_data%>%
+  filter(Gender == "Boy")
+tt_7 <- table(male[,c(2,14)]) # Create a contingency table
+tt_7
+df_tt_7 <- data.frame(expand.grid(row.names(tt_7),colnames(tt_7)),c(tt_7))
+colnames(df_tt_7) <- c("Age","Adaptability","Count.t")
+  ggplot(df_tt_7, aes(fill = Adaptability, y = Count.t,x = Age))+
+    geom_bar(position="dodge", stat="identity")+
+    geom_text(aes(x = Age, y = as.numeric(Count.t), label = format(Count.t, digits = 1)),
+            size = 2.5,
+            position = position_dodge(.9),
+            inherit.aes = TRUE,
+            na.rm = TRUE, vjust = -1)+
+    ggtitle("Age Distribution by Adaptivity Level for Boys")
+```
+<br> From this chart is possible observe that, for the Male gender respondents for this survey:
+<br> a) Between the ages 26-30 majority of the respondents answered as having Moderate adaptivity
+<br> b) Bigger number of responses related to the Moderate adaptativity were observed at the ages range between 11-15, 16-20,21-25 and 26-30
+<br> c) For the age range of 1-5 all respondents answered Low 
+<br> d) And for 6-10 majority of responses were low.
+
+
+## 5. Preparing the data to ACM
+
+To input the data at MCA formula is needed to **convert the data for factor format** when applying **dud.acm()**.
+
+```{r}
+# Data convert to factor
+original_data_factor <- as.data.frame(unclass(original_data), stringsAsFactors = TRUE)
+```
+
+The next step here is to extract the observed frequencies, we do it by summary().
+
+```{r}
+summary(original_data_factor)
+```
+## 6. Contingency tables
+
+We want to test if exist correlation between Adaptivity.Level (referencial attribute) and the other attributes. So Adaptivity.Level will be our row, and we need compare with each one of the others attributes. As output we will have 4 tables where:
+<br>1.Numbers displayed in **blue** are **row percentage for observed freq.** 
+<br>2.Numbers displayed in **green** are **col. percentage for observed freq.**
+<br>3.Numbers displayed in **black** are **observed freq. **
+<br>4.Numbers displayed in **dark green** are **explained freq.**
+
+<br>The hypothesis to be tested are:
+
+<p style="text-align: center;"><br>H0: The association between the two categorical variables **is** random.<p/>								 
+<p style="text-align: center;"><br>H1: The association between the two categorical variables **is not** random.<p/>
+
+
+<br><br>The Variables to have its association tested are: Gender; Age; Education.Level; Institution.Type; IT.Student; Location; Load.shedding; Financial.Condition; Internet.Type; Network.Type; Class.Duration; Self.Lms; Device;
+
+```{r}
+sjt.xtab(var.row = original_data_factor$Adaptivity.Level,
+         var.col = original_data_factor$Device,
+         show.exp = TRUE,
+         show.row.prc = TRUE,
+         show.col.prc = TRUE, 
+         encoding = "UTF-8")
+```
+
+```{r}
+sjt.xtab(var.row = original_data_factor$Adaptivity.Level,
+         var.col = original_data_factor$Self.Lms,
+         show.exp = TRUE,
+         show.row.prc = TRUE,
+         show.col.prc = TRUE, 
+         encoding = "UTF-8")
+```
+
+```{r}
+sjt.xtab(var.row = original_data_factor$Adaptivity.Level,
+         var.col = original_data_factor$Class.Duration,
+         show.exp = TRUE,
+         show.row.prc = TRUE,
+         show.col.prc = TRUE, 
+         encoding = "UTF-8")
+```
+
+```{r}
+sjt.xtab(var.row = original_data_factor$Adaptivity.Level,
+         var.col = original_data_factor$Network.Type,
+         show.exp = TRUE,
+         show.row.prc = TRUE,
+         show.col.prc = TRUE, 
+         encoding = "UTF-8")
+```
+
+```{r}
+sjt.xtab(var.row = original_data_factor$Adaptivity.Level,
+         var.col = original_data_factor$Load.shedding,
+         show.exp = TRUE,
+         show.row.prc = TRUE,
+         show.col.prc = TRUE, 
+         encoding = "UTF-8")
+```
+
+```{r}
+sjt.xtab(var.row = original_data_factor$Adaptivity.Level,
+         var.col = original_data_factor$Location,
+         show.exp = TRUE,
+         show.row.prc = TRUE,
+         show.col.prc = TRUE, 
+         encoding = "UTF-8")
+```
+
+```{r}
+sjt.xtab(var.row = original_data_factor$Adaptivity.Level,
+         var.col = original_data_factor$IT.Student,
+         show.exp = TRUE,
+         show.row.prc = TRUE,
+         show.col.prc = TRUE, 
+         encoding = "UTF-8")
+```
+
+```{r}
+sjt.xtab(var.row = original_data_factor$Adaptivity.Level,
+         var.col = original_data_factor$Age,
+         show.exp = TRUE,
+         show.row.prc = TRUE,
+         show.col.prc = TRUE, 
+         encoding = "UTF-8")
+```
+
+```{r}
+sjt.xtab(var.row = original_data_factor$Adaptivity.Level,
+         var.col = original_data_factor$Gender,
+         show.exp = TRUE,
+         show.row.prc = TRUE,
+         show.col.prc = TRUE, 
+         encoding = "UTF-8")
+```
+
+```{r}
+sjt.xtab(var.row = original_data_factor$Adaptivity.Level,
+         var.col = original_data_factor$Education.Level,
+         show.exp = TRUE,
+         show.row.prc = TRUE,
+         show.col.prc = TRUE, 
+         encoding = "UTF-8")
+```
+
+```{r}
+sjt.xtab(var.row = original_data_factor$Adaptivity.Level,
+         var.col = original_data_factor$Institution.Type,
+         show.exp = TRUE,
+         show.row.prc = TRUE,
+         show.col.prc = TRUE, 
+         encoding = "UTF-8")
+```
+
+```{r}
+sjt.xtab(var.row = original_data_factor$Adaptivity.Level,
+         var.col = original_data_factor$Internet.Type,
+         show.exp = TRUE,
+         show.row.prc = TRUE,
+         show.col.prc = TRUE, 
+         encoding = "UTF-8")
+```
+
+```{r}
+sjt.xtab(var.row = original_data_factor$Adaptivity.Level,
+         var.col = original_data_factor$Financial.Condition,
+         show.exp = TRUE,
+         show.row.prc = TRUE,
+         show.col.prc = TRUE, 
+         encoding = "UTF-8")
+```
+
+Looking at all p-values, is possible to reject H0, so is possible to say that there is a not random association between all the categorical variables and the Adaptivity.Level. 
+
+**Thus for the MCA we will keep all the attributes**
+
+
+## 7. Creating MCA
+
+```{r}
+MCA <- dudi.acm(original_data_factor, scannf = FALSE, nf = 3)
+##nf = 3 means that the coordinates extracted are referent to 3 dimensions (the 3 that have bigger part. on the variance), I choose it because I want to plot a 3D graph.
+```
+
+##### Percentual Variances for Each Dimension(Eigenvalues)
+```{r}
+var_perc <- MCA$eig/sum(MCA$eig)*100
+paste0(round(var_perc,2),"%")
+```
+Were generated 24 dimensions because the maximal number of dimensions is given by number of attributes(J = 38) subtracted by the number of variables(Q = 14).  
+##### Number of attributes per variable
+```{r}
+numb_attr <- apply(original_data_factor,  
+                   MARGIN = 2,
+                   FUN = function(x) nlevels(as.factor(x)))
+#R uses the number of attributes to generate an data frame with the coordinates of the Binary or Burt Matrix 
+
+```
+##### Consolidating the coordinates
+  **Binary Matriz Method**
+```{r}
+df_MCA <- data.frame(MCA$c1, Variable = rep(names(numb_attr), numb_attr))
+```
+
+### Ploting the Perceptual Map
+
+```{r}
+df_MCA %>%
+  rownames_to_column() %>%
+  rename(Attribute = 1)%>%
+  ggplot(aes(x = CS1, y = CS2, label = Attribute, color = Variable))+
+  geom_point()+
+  geom_label_repel()+
+  geom_vline(aes(xintercept = 0), linetype = "longdash", color = "grey48") +
+  geom_hline(aes(yintercept = 0), linetype = "longdash", color = "grey48") +
+  labs(x = paste("Dimension 1:", paste0(round(var_perc[1], 2), "%")),
+       y = paste("Dimension 2:", paste0(round(var_perc[2], 2), "%"))) +
+  theme_bw()
+
+```
+
+```{r}
+MCA_3D <- plot_ly()
+```
+
+```{r}
+MCA_3D <- add_trace(p = MCA_3D,
+                    x = df_MCA$CS1,
+                    y = df_MCA$CS2,
+                    z = df_MCA$CS3,
+                    mode = "text",
+                    text = rownames(df_MCA),
+                    textfont = list(color = "blue"),
+                    marker = list(color = "red"),
+                    showlegend = FALSE)
+```
+
+```{r}
+MCA_3D
+```
+
+### Results
+
+<br>Exists an association between:
+<br>a) Adaptivity.Level Low and Institution.Type.Government, Network.Type 2G, Age 26-30, Load.shedding High, Device Mobile, Location.No (out of Town), Gender.Girl.
+<br>b)Adaptivity.Level Low and Institution.Type.Non Government, Network.Type 4G, Class.Duration 1.3h, Load.shedding Low, Location.Yes(Town), Gender.Boy, Financial.Condition Mid.
+<br>c)Adaptivity.Level High, Financial.Condition Rich.
